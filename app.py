@@ -300,11 +300,14 @@ def cached_endpoint(ttl=300):
 
 # -------------- Routes Endpoints --------------
 
-@app.route('/accinfo')
+@app.route('/uc-info')
 @cached_endpoint()
 def get_account_info():
-    uid = request.args.get('uid')
+    api_key = request.args.get('key', '')
+    if api_key != 'RAM-SAGAR':
+        return jsonify({"error": "Invalid or missing API key"}), 401
 
+    uid = request.args.get('uid')
     if not uid:
         return jsonify({"error": "Please provide UID"}), 400
 
