@@ -1,0 +1,74 @@
+{
+  "IND": [
+    "uid=7888757297&password=46A1533E52BA060006F5673C0C273085EBB43E2D8D27D103CA1F8353097DE4C8",
+    "uid=2222222222&password=IND_PASS_2",
+    "uid=3333333333&password=IND_PASS_3",
+    "uid=2222222222&password=IND_PASS_4",
+    "uid=3333333333&password=IND_PASS_5",
+    "uid=2222222222&password=IND_PASS_6",
+    "uid=3333333333&password=IND_PASS_7",
+    "uid=2222222222&password=IND_PASS_8",
+    "uid=3333333333&password=IND_PASS_9",
+    "uid=3333333333&password=IND_PASS_10"
+  ],
+  "BD": [
+    "uid=4444444444&password=BD_PASS_1",
+    "uid=5555555555&password=BD_PASS_2",
+    "uid=6666666666&password=BD_PASS_3",
+    "uid=2222222222&password=IND_PASS_4",
+    "uid=3333333333&password=IND_PASS_5",
+    "uid=2222222222&password=IND_PASS_6",
+    "uid=3333333333&password=IND_PASS_7",
+    "uid=2222222222&password=IND_PASS_8",
+    "uid=3333333333&password=IND_PASS_9",
+    "uid=3333333333&password=IND_PASS_10"
+  ],
+  "ME": [
+    "uid=7777777777&password=ME_PASS_1",
+    "uid=8888888888&password=ME_PASS_2",
+    "uid=9999999999&password=ME_PASS_3",
+    "uid=2222222222&password=IND_PASS_4",
+    "uid=3333333333&password=IND_PASS_5",
+    "uid=2222222222&password=IND_PASS_6",
+    "uid=3333333333&password=IND_PASS_7",
+    "uid=2222222222&password=IND_PASS_8",
+    "uid=3333333333&password=IND_PASS_9",
+    "uid=3333333333&password=IND_PASS_10"
+  ],
+  "ID": [
+    "uid=1010101010&password=ID_PASS_1",
+    "uid=1212121212&password=ID_PASS_2",
+    "uid=1313131313&password=ID_PASS_3",
+    "uid=2222222222&password=IND_PASS_4",
+    "uid=3333333333&password=IND_PASS_5",
+    "uid=2222222222&password=IND_PASS_6",
+    "uid=3333333333&password=IND_PASS_7",
+    "uid=2222222222&password=IND_PASS_8",
+    "uid=3333333333&password=IND_PASS_9",
+    "uid=3333333333&password=IND_PASS_10"
+  ],
+  "SG": [
+    "uid=1414141414&password=SG_PASS_1",
+    "uid=1515151515&password=SG_PASS_2",
+    "uid=1616161616&password=SG_PASS_3",
+    "uid=2222222222&password=IND_PASS_4",
+    "uid=3333333333&password=IND_PASS_5",
+    "uid=2222222222&password=IND_PASS_6",
+    "uid=3333333333&password=IND_PASS_7",
+    "uid=2222222222&password=IND_PASS_8",
+    "uid=3333333333&password=IND_PASS_9",
+    "uid=3333333333&password=IND_PASS_10"
+  ],
+  "BR": [
+    "uid=1717171717&password=BR_PASS_1",
+    "uid=1818181818&password=BR_PASS_2",
+    "uid=1919191919&password=BR_PASS_3",
+    "uid=2222222222&password=IND_PASS_4",
+    "uid=3333333333&password=IND_PASS_5",
+    "uid=2222222222&password=IND_PASS_6",
+    "uid=3333333333&password=IND_PASS_7",
+    "uid=2222222222&password=IND_PASS_8",
+    "uid=3333333333&password=IND_PASS_9",
+    "uid=3333333333&password=IND_PASS_10"
+  ]
+}
