@@ -24,10 +24,7 @@ MAIN_KEY = base64.b64decode('WWcmdGMlREV1aDYlWmNeOA==')
 MAIN_IV = base64.b64decode('Nm95WkRyMjJFM3ljaGpNJQ==')
 RELEASEVERSION = "OB55"
 USERAGENT = "UnityPlayer/2018.4.12f1 (UnityWebRequest/1.0, libcurl/8.5.0-DEV)"
-SUPPORTED_REGIONS = [
-    "IND", "SG", "ID", "BR", "VN", "US", "SAC", "NA",
-    "RU", "TH", "TW", "BD", "PK", "ME", "CIS", "EUROPE"
-]
+SUPPORTED_REGIONS = ["IND"]  # Only India
 
 # ---------- App Setup ----------
 
@@ -95,9 +92,7 @@ def load_guests_from_file():
         print(f"Files in directory: {os.listdir('.')}")
         with open('guests.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
-        for region in SUPPORTED_REGIONS:
-            if region not in data or not data[region]:
-                data[region] = []
+        data = {r: data.get(r, []) for r in SUPPORTED_REGIONS}
         GUEST_CREDENTIALS = data
         print("✅ Guests loaded from guests.json")
         print(f"Loaded regions: {list(GUEST_CREDENTIALS.keys())}")
@@ -146,81 +141,111 @@ async def get_access_token(account: str):
         return data.get("access_token", "0"), data.get("open_id", "0")
 
 
+def rotate_to_next_guest(region: str):
+    """Region ke guest list me agle guest pe move karo aur cached token hatao."""
+    guest_list = GUEST_CREDENTIALS.get(region, [])
+    if guest_list:
+        region_index[region] = (region_index[region] + 1) % len(guest_list)
+    cached_tokens.pop(region, None)
+
+
 async def create_jwt(region: str):
     """
-    Naya token-gen logic:
-    1. Guest credential se access_token + open_id laao
-    2. LoginReq protobuf banao aur AES-CBC se encrypt karo
-    3. MajorLogin pe POST karo
-    4. Response me se SAHI protobuf start index dhoondo (junk bytes skip)
-    5. LoginRes parse karo
+    Naya token-gen logic WITH GUEST FALLBACK:
+    1. Region ki POORI guest list try hoti hai ek-ek karke
+    2. Koi bhi step fail ho (token grant / request / protobuf / empty token)
+       to agle guest pe rotate ho jata hai
+    3. Sabhi guests exhaust ho jayein to hi fail hota hai
     """
-    try:
-        account = get_account_credentials(region)
-    except ValueError as e:
-        print(f"❌ {e}")
+    guest_list = GUEST_CREDENTIALS.get(region, [])
+    if not guest_list:
+        print(f"❌ No guest credentials available for region {region}")
         return
 
-    token_val, open_id = await get_access_token(account)
+    total_guests = len(guest_list)
 
-    if token_val == "0" or open_id == "0":
-        print(f"❌ INVALID GUEST CREDS [{region}] — no access token")
-        return
+    for attempt in range(total_guests):
+        idx = region_index[region]
+        account = guest_list[idx]
+        print(f"🔑 [{region}] Trying guest_idx={idx} (attempt {attempt + 1}/{total_guests})")
 
-    body = json.dumps({
-        "open_id": open_id,
-        "open_id_type": "4",
-        "login_token": token_val,
-        "orign_platform_type": "4"
-    })
+        # ---- Step 1: access_token + open_id ----
+        try:
+            token_val, open_id = await get_access_token(account)
+        except Exception as e:
+            print(f"❌ [{region}] guest_idx={idx} token grant exception: {e}")
+            token_val = open_id = "0"
 
-    proto_bytes = await json_to_proto(body, FreeFire_pb2.LoginReq())
-    payload = aes_cbc_encrypt(MAIN_KEY, MAIN_IV, proto_bytes)
+        if token_val == "0" or open_id == "0":
+            print(f"❌ INVALID GUEST [{region}] guest_idx={idx} — no access token, trying next guest")
+            rotate_to_next_guest(region)
+            continue
 
-    url = "https://loginbp.ppmainecoonghj.com/MajorLogin"
-    headers = {
-        'User-Agent': USERAGENT,
-        'Accept': "*/*",
-        'Accept-Encoding': "deflate, gzip",
-        'X-Ga-Sv': "1789534056",
-        'Authorization': "Bearer",
-        'X-Ga': "v1 1",
-        'Releaseversion': RELEASEVERSION,
-        'Content-Type': "application/x-www-form-urlencoded",
-        'X-Unity-Version': "2018.4.12f1",
-        'PlAy_VeR': "1.132.1",
-        'Ob_VeR': RELEASEVERSION
-    }
+        # ---- Step 2: LoginReq banao aur encrypt karo ----
+        body = json.dumps({
+            "open_id": open_id,
+            "open_id_type": "4",
+            "login_token": token_val,
+            "orign_platform_type": "4"
+        })
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(url, data=payload, headers=headers)
+        proto_bytes = await json_to_proto(body, FreeFire_pb2.LoginReq())
+        payload = aes_cbc_encrypt(MAIN_KEY, MAIN_IV, proto_bytes)
+
+        url = "https://loginbp.ppmainecoonghj.com/MajorLogin"
+        headers = {
+            'User-Agent': USERAGENT,
+            'Accept': "*/*",
+            'Accept-Encoding': "deflate, gzip",
+            'X-Ga-Sv': "1789534056",
+            'Authorization': "Bearer",
+            'X-Ga': "v1 1",
+            'Releaseversion': RELEASEVERSION,
+            'Content-Type': "application/x-www-form-urlencoded",
+            'X-Unity-Version': "2018.4.12f1",
+            'PlAy_VeR': "1.132.1",
+            'Ob_VeR': RELEASEVERSION
+        }
+
+        # ---- Step 3: MajorLogin POST ----
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(url, data=payload, headers=headers)
+        except Exception as req_err:
+            print(f"❌ [{region}] guest_idx={idx} MajorLogin request error: {req_err} — trying next guest")
+            rotate_to_next_guest(region)
+            continue
 
         print(f"=== [{region}] HTTP {resp.status_code} | Content-Length: {len(resp.content)} ===")
 
-        # === Sahi protobuf start index dhoondo ===
+        # ---- Step 4: Sahi protobuf start index dhoondo ----
         start_idx = find_protobuf_start(resp.content)
         if start_idx == -1:
-            print(f"❌ [{region}] Protobuf start not found. Raw: {resp.content[:300]}")
-            return
+            print(f"❌ [{region}] guest_idx={idx} Protobuf start not found — trying next guest")
+            rotate_to_next_guest(region)
+            continue
 
         proto_data = resp.content[start_idx:]
         print(f"=== [{region}] Protobuf starts at index {start_idx} ===")
 
+        # ---- Step 5: LoginRes parse karo ----
         try:
             msg = json.loads(json_format.MessageToJson(
                 decode_protobuf(proto_data, FreeFire_pb2.LoginRes)
             ))
         except Exception as parse_err:
-            print(f"❌ [{region}] PROTO FAIL from idx {start_idx}: {parse_err}")
-            print(f"   Raw: {resp.content[start_idx:start_idx+300]}")
-            return
+            print(f"❌ [{region}] guest_idx={idx} PROTO FAIL from idx {start_idx}: {parse_err} — trying next guest")
+            rotate_to_next_guest(region)
+            continue
 
-        # Token mila?
+        # ---- Step 6: Token mila? ----
         token_str = msg.get("token", "")
         if not token_str:
-            print(f"❌ [{region}] Empty token in LoginRes")
-            return
+            print(f"❌ [{region}] guest_idx={idx} Empty token in LoginRes — trying next guest")
+            rotate_to_next_guest(region)
+            continue
 
+        # ---- SUCCESS ----
         cached_tokens[region] = {
             'token': f"Bearer {token_str}",
             'region': msg.get('lockRegion', region) or region,
@@ -228,7 +253,10 @@ async def create_jwt(region: str):
             'expires_at': time.time() + 25200
         }
 
-        print(f"✅ TOKEN OK [{region}] guest_idx={region_index[region]} | lock={msg.get('lockRegion','')}")
+        print(f"✅ TOKEN OK [{region}] guest_idx={idx} | lock={msg.get('lockRegion','')}")
+        return
+
+    print(f"❌ [{region}] All {total_guests} guests exhausted — token NOT generated")
 
 # -------------- Token Info (Lazy Generation) --------------
 
@@ -314,27 +342,24 @@ def get_account_info():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    if uid in uid_region_cache:
+    # Info fetch bhi guest fallback ke saath: fail ho to agle guest pe try
+    max_attempts = max(1, len(GUEST_CREDENTIALS.get("IND", [])))
+    last_err = None
+
+    for attempt in range(max_attempts):
         try:
             data = loop.run_until_complete(
-                GetAccountInformation(uid, "7", uid_region_cache[uid], "/GetPlayerPersonalShow")
+                GetAccountInformation(uid, "7", "IND", "/GetPlayerPersonalShow")
             )
             return json.dumps(data, indent=2), 200, {'Content-Type': 'application/json'}
         except Exception as e:
-            print(f"Error with cached region {uid_region_cache[uid]}: {e}")
+            last_err = e
+            print(f"❌ Fetch attempt {attempt + 1}/{max_attempts} failed for uid {uid}: {e}")
+            # Agla guest try karne ke liye token invalidate + rotate
+            rotate_to_next_guest("IND")
 
-    for region in SUPPORTED_REGIONS:
-        try:
-            data = loop.run_until_complete(
-                GetAccountInformation(uid, "7", region, "/GetPlayerPersonalShow")
-            )
-            uid_region_cache[uid] = region
-            return json.dumps(data, indent=2), 200, {'Content-Type': 'application/json'}
-        except Exception as e:
-            print(f"Failed for region {region}: {e}")
-            continue
-
-    return jsonify({"error": "UID not found or no guest available for any region"}), 404
+    print(f"Failed to fetch info for uid {uid}: {last_err}")
+    return jsonify({"error": "UID not found or no working guest available"}), 404
 
 
 @app.route('/ref-token', methods=['GET', 'POST'])
