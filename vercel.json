@@ -1,16 +1,17 @@
 {
-    "version":2,
-    "builds": [
-        {
-            "src":"./index.py",
-            "use": "@vercel/python",
-            "config":{"runtime":"python3.8"}
-        }
-    ],
-    "routes": [
-        {
-            "src":"/(.*)",
-            "dest":"/"
-        }
-    ]
+  "version": 2,
+  "functions": {
+    "api/generate-ind.py": {
+      "runtime": "vercel-python@latest"
+    },
+    "app.py": {
+      "runtime": "vercel-python@latest"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/generate-ind(?:/.*)?",
+      "dest": "/api/generate-ind.py"
+    }
+  ]
 }
