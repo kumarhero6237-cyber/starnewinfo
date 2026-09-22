@@ -10,6 +10,7 @@ import requests
 import urllib3
 import threading
 import concurrent.futures
+import traceback
 from flask import Flask, request, jsonify
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -601,7 +602,12 @@ def cRoWnX_cReAtE_aCcOuNt(index=1, existing_uids=None, nickname=None, region="IN
 @generator_app.route("/", methods=["POST"])
 def generate_ind_endpoint():
     if request.headers.get("X-Generator-Key", "") != GENERATOR_API_KEY:
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        return jsonify({
+            "ok": False,
+            "stage": "generator-auth",
+            "error": "Unauthorized",
+            "debug_version": "GENERATOR-SERVICE-DEBUG-2026-09-22-v2"
+        }), 401
     try:
         existing = cRoWnX_lOaD_eXiStInG_uIdS()
         account = cRoWnX_cReAtE_aCcOuNt(
@@ -616,8 +622,17 @@ def generate_ind_endpoint():
             "account_id": account["account_id"],
             "name": account["name"], "region": "IND"
         }), 201
-    except Exception:
-        return jsonify({"ok": False, "error": "Account generation failed"}), 500
+    except Exception as e:
+        print(f"[GENERATOR] Account generation exception: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "stage": "account-creation",
+            "error": "Account generation failed",
+            "exception_type": type(e).__name__,
+            "detail": str(e),
+            "debug_version": "GENERATOR-SERVICE-DEBUG-2026-09-22-v2"
+        }), 500
 
 def run_generator_service():
     generator_app.run(host="0.0.0.0", port=GENERATOR_PORT, debug=False, threaded=False)

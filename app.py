@@ -29,6 +29,7 @@ ACCOUNT_GENERATOR_URL = os.environ.get("ACCOUNT_GENERATOR_URL", "/api/generate-i
 ACCOUNT_GENERATOR_KEY = os.environ.get("ACCOUNT_GENERATOR_KEY", "CHANGE-ME-GENERATOR-KEY")
 GUEST_FILE = os.environ.get("GUEST_FILE", "guests.json")
 GENERATOR_TIMEOUT = float(os.environ.get("GENERATOR_TIMEOUT", "30"))
+APP_DEBUG_VERSION = "IND-GUEST-RECOVERY-DEBUG-2026-09-22-v2"
 
 # ---------- App Setup ----------
 
@@ -135,7 +136,8 @@ def resolve_generator_url() -> str:
 
 async def generate_replacement_guest():
     generator_url = resolve_generator_url()
-    print(f"🔄 Calling account generator: {generator_url}")
+    print(f"🔄 [GENERATOR] URL={generator_url}")
+    print(f"🔄 [GENERATOR] Host={request.host} | ACCOUNT_GENERATOR_URL={ACCOUNT_GENERATOR_URL}")
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(GENERATOR_TIMEOUT),
@@ -154,10 +156,10 @@ async def generate_replacement_guest():
         print(f"❌ Generator connection failed: {type(e).__name__}: {e}")
         raise ValueError(f"Generator connection failed: {type(e).__name__}")
 
-    print(f"🔄 Generator response: HTTP {r.status_code}")
+    print(f"🔄 [GENERATOR] HTTP {r.status_code} | content_type={r.headers.get('content-type', '')} | body={r.text[:1000]!r}")
     if r.status_code not in (200, 201):
-        print(f"❌ Generator HTTP {r.status_code}: {r.text[:500]}")
-        raise ValueError(f"Generator HTTP {r.status_code}")
+        print(f"❌ [GENERATOR] HTTP {r.status_code}: {r.text[:1000]}")
+        raise ValueError(f"Generator HTTP {r.status_code}: {r.text[:300]}")
 
     try:
         data = r.json()
@@ -352,9 +354,13 @@ def get_account_info():
         except Exception as e:
             print(f"❌ Guest recovery failed: {type(e).__name__}: {e}")
             return jsonify({
+                "ok": False,
                 "error": "Guest service unavailable",
                 "stage": "guest-recovery",
-                "detail": str(e)
+                "debug_version": APP_DEBUG_VERSION,
+                "generator_url": ACCOUNT_GENERATOR_URL,
+                "detail": str(e),
+                "exception_type": type(e).__name__
             }), 503
 
         try:
@@ -417,7 +423,9 @@ def status():
         "active_ind_guest": bool(GUEST_CREDENTIALS.get("IND")),
         "total_guests": {"IND": len(GUEST_CREDENTIALS.get("IND", []))},
         "cached_tokens": list(cached_tokens.keys()),
-        "account_generator": ACCOUNT_GENERATOR_URL
+        "account_generator": ACCOUNT_GENERATOR_URL,
+        "debug_version": APP_DEBUG_VERSION,
+        "generator_timeout": GENERATOR_TIMEOUT
     })
 
 
