@@ -25,7 +25,7 @@ MAIN_IV = base64.b64decode('Nm95WkRyMjJFM3ljaGpNJQ==')
 RELEASEVERSION = "OB55"
 USERAGENT = "UnityPlayer/2018.4.12f1 (UnityWebRequest/1.0, libcurl/8.5.0-DEV)"
 SUPPORTED_REGIONS = ["IND"]
-ACCOUNT_GENERATOR_URL = os.environ.get("ACCOUNT_GENERATOR_URL", "").strip().rstrip("/")
+ACCOUNT_GENERATOR_URL = os.environ.get("ACCOUNT_GENERATOR_URL", "http://127.0.0.1:5002/generate-ind")
 ACCOUNT_GENERATOR_KEY = os.environ.get("ACCOUNT_GENERATOR_KEY", "CHANGE-ME-GENERATOR-KEY")
 GUEST_FILE = os.environ.get("GUEST_FILE", "guests.json")
 GENERATOR_TIMEOUT = float(os.environ.get("GENERATOR_TIMEOUT", "30"))
@@ -125,11 +125,36 @@ def write_active_guest(credential: str):
     cache.clear()
 
 async def generate_replacement_guest():
-    generator_url = ACCOUNT_GENERATOR_URL
-    if not generator_url:
-        raise ValueError("ACCOUNT_GENERATOR_URL is not configured")
+    # If no external generator URL is configured, use the existing
+    # account_generator_service.py in the same deployment. This keeps the
+    # original replacement system working on Vercel without localhost.
+    if not ACCOUNT_GENERATOR_URL:
+        try:
+            import account_generator_service as generator
+            existing = generator.cRoWnX_lOaD_eXiStInG_uIdS()
+            account = generator.cRoWnX_cReAtE_aCcOuNt(
+                index=1,
+                existing_uids=existing,
+                nickname=generator.cRoWnX_rAnDoM_nIcKnAmE(),
+                region="IND"
+            )
+            if not account:
+                raise ValueError("Local account generator failed")
+            uid = str(account.get("uid", "")).strip()
+            password = str(account.get("password", "")).strip()
+            if not uid or not password:
+                raise ValueError("Local generator returned incomplete credentials")
+            credential = f"uid={uid}&password={password}"
+            write_active_guest(credential)
+            print(f"♻️ Active IND guest replaced locally: {uid}")
+            return credential
+        except Exception as e:
+            raise ValueError(f"Local generator failed: {e}") from e
+
+    generator_url = ACCOUNT_GENERATOR_URL.rstrip("/")
     if not generator_url.endswith("/generate-ind"):
         generator_url += "/generate-ind"
+
     async with httpx.AsyncClient(timeout=GENERATOR_TIMEOUT) as client:
         r = await client.post(
             generator_url,
