@@ -25,7 +25,7 @@ MAIN_IV = base64.b64decode('Nm95WkRyMjJFM3ljaGpNJQ==')
 RELEASEVERSION = "OB55"
 USERAGENT = "UnityPlayer/2018.4.12f1 (UnityWebRequest/1.0, libcurl/8.5.0-DEV)"
 SUPPORTED_REGIONS = ["IND"]
-ACCOUNT_GENERATOR_URL = os.environ.get("ACCOUNT_GENERATOR_URL", "http://127.0.0.1:5002/generate-ind")
+ACCOUNT_GENERATOR_URL = os.environ.get("ACCOUNT_GENERATOR_URL", "").strip().rstrip("/")
 ACCOUNT_GENERATOR_KEY = os.environ.get("ACCOUNT_GENERATOR_KEY", "CHANGE-ME-GENERATOR-KEY")
 GUEST_FILE = os.environ.get("GUEST_FILE", "guests.json")
 GENERATOR_TIMEOUT = float(os.environ.get("GENERATOR_TIMEOUT", "30"))
@@ -125,9 +125,14 @@ def write_active_guest(credential: str):
     cache.clear()
 
 async def generate_replacement_guest():
+    generator_url = ACCOUNT_GENERATOR_URL
+    if not generator_url:
+        raise ValueError("ACCOUNT_GENERATOR_URL is not configured")
+    if not generator_url.endswith("/generate-ind"):
+        generator_url += "/generate-ind"
     async with httpx.AsyncClient(timeout=GENERATOR_TIMEOUT) as client:
         r = await client.post(
-            ACCOUNT_GENERATOR_URL,
+            generator_url,
             headers={"X-Generator-Key": ACCOUNT_GENERATOR_KEY},
             json={"region": "IND", "count": 1}
         )
