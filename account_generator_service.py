@@ -47,7 +47,7 @@ mAx_WoRkErS = 1
 rEtRy_CoUnT = 5
 bAsE_dElAy = 0
 GENERATOR_API_KEY = os.environ.get("GENERATOR_API_KEY", "CHANGE-ME-GENERATOR-KEY")
-GENERATOR_PORT = int(os.environ.get("PORT", os.environ.get("GENERATOR_PORT", "5002")))
+GENERATOR_PORT = int(os.environ.get("GENERATOR_PORT", "5002"))
 generator_app = Flask(__name__)
 sHaReD_cOoKiE = "datadome=nmP601L~4DvFBNemgIhE2d3Y~tR68_GHUaV8WhUdKLhjg74S_YsRWpOCnYL8cNtz58Olr_SEm1GSttQImpJO1j15k2AGGY~bFDp0hfrk6p0Dv_JZSGXJUGhhY_QsQ~5H"
 
@@ -597,6 +597,8 @@ def cRoWnX_cReAtE_aCcOuNt(index=1, existing_uids=None, nickname=None, region="IN
 
 
 @generator_app.route("/generate-ind", methods=["POST"])
+@generator_app.route("/api/generate-ind", methods=["POST"])
+@generator_app.route("/", methods=["POST"])
 def generate_ind_endpoint():
     if request.headers.get("X-Generator-Key", "") != GENERATOR_API_KEY:
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
