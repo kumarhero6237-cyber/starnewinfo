@@ -25,7 +25,7 @@ MAIN_IV = base64.b64decode('Nm95WkRyMjJFM3ljaGpNJQ==')
 RELEASEVERSION = "OB55"
 USERAGENT = "UnityPlayer/2018.4.12f1 (UnityWebRequest/1.0, libcurl/8.5.0-DEV)"
 SUPPORTED_REGIONS = ["IND"]
-ACCOUNT_GENERATOR_URL = os.environ.get("ACCOUNT_GENERATOR_URL", "http://127.0.0.1:5002/generate-ind")
+ACCOUNT_GENERATOR_URL = os.environ.get("ACCOUNT_GENERATOR_URL", "/api/generate-ind")
 ACCOUNT_GENERATOR_KEY = os.environ.get("ACCOUNT_GENERATOR_KEY", "CHANGE-ME-GENERATOR-KEY")
 GUEST_FILE = os.environ.get("GUEST_FILE", "guests.json")
 GENERATOR_TIMEOUT = float(os.environ.get("GENERATOR_TIMEOUT", "30"))
@@ -124,22 +124,56 @@ def write_active_guest(credential: str):
     uid_region_cache.clear()
     cache.clear()
 
+def resolve_generator_url() -> str:
+    url = ACCOUNT_GENERATOR_URL.strip()
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    if url.startswith("/"):
+        return request.host_url.rstrip("/") + url
+    raise ValueError("ACCOUNT_GENERATOR_URL must be an absolute URL or start with '/'")
+
+
 async def generate_replacement_guest():
-    async with httpx.AsyncClient(timeout=GENERATOR_TIMEOUT) as client:
-        r = await client.post(
-            ACCOUNT_GENERATOR_URL,
-            headers={"X-Generator-Key": ACCOUNT_GENERATOR_KEY},
-            json={"region": "IND", "count": 1}
-        )
+    generator_url = resolve_generator_url()
+    print(f"🔄 Calling account generator: {generator_url}")
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(GENERATOR_TIMEOUT),
+            follow_redirects=True
+        ) as client:
+            r = await client.post(
+                generator_url,
+                headers={
+                    "X-Generator-Key": ACCOUNT_GENERATOR_KEY,
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                json={"region": "IND", "count": 1}
+            )
+    except Exception as e:
+        print(f"❌ Generator connection failed: {type(e).__name__}: {e}")
+        raise ValueError(f"Generator connection failed: {type(e).__name__}")
+
+    print(f"🔄 Generator response: HTTP {r.status_code}")
     if r.status_code not in (200, 201):
+        print(f"❌ Generator HTTP {r.status_code}: {r.text[:500]}")
         raise ValueError(f"Generator HTTP {r.status_code}")
-    data = r.json()
+
+    try:
+        data = r.json()
+    except Exception as e:
+        print(f"❌ Generator returned non-JSON response: {r.text[:500]}")
+        raise ValueError("Generator returned invalid JSON") from e
+
     if not data.get("ok"):
+        print(f"❌ Generator returned failure: {data.get('error', 'unknown')}")
         raise ValueError(data.get("error", "Generator failed"))
+
     uid = str(data.get("uid", "")).strip()
     password = str(data.get("password", "")).strip()
     if not uid or not password:
         raise ValueError("Generator returned incomplete credentials")
+
     credential = f"uid={uid}&password={password}"
     write_active_guest(credential)
     print(f"♻️ Active IND guest replaced: {uid}")
@@ -317,7 +351,11 @@ def get_account_info():
             loop.run_until_complete(ensure_working_guest())
         except Exception as e:
             print(f"❌ Guest recovery failed: {type(e).__name__}: {e}")
-            return jsonify({"error": "Guest service unavailable"}), 503
+            return jsonify({
+                "error": "Guest service unavailable",
+                "stage": "guest-recovery",
+                "detail": str(e)
+            }), 503
 
         try:
             data = loop.run_until_complete(
