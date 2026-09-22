@@ -1,17 +1,3 @@
 {
-  "version": 2,
-  "functions": {
-    "api/generate-ind.py": {
-      "runtime": "vercel-python@latest"
-    },
-    "app.py": {
-      "runtime": "vercel-python@latest"
-    }
-  },
-  "routes": [
-    {
-      "src": "/api/generate-ind(?:/.*)?",
-      "dest": "/api/generate-ind.py"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
